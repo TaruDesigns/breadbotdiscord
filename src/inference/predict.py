@@ -1,16 +1,30 @@
+import base64
+from pathlib import Path
+
 import httpx
-from loguru import logger
 from pydantic import BaseModel
 
 
 class ImageData(BaseModel):
     image: str  # base64 encoded image
 
+    @classmethod
+    def from_img_path(cls, img_path: Path):
+        img_bytes = Path(img_path).read_bytes()
+        img_b64 = base64.b64encode(img_bytes).decode("utf-8")
+        return cls(image=img_b64)
+
 
 class PredictResponse(BaseModel):
     image: str | None  # base64 encoded image
     roundness: float | None
     labels: dict[str, float] | None  # Labels with confidences
+
+    def save_img(self, out_path: Path):
+        if self.image is None:
+            raise ValueError("No image to save.")
+        img_bytes = base64.b64decode(self.image)
+        out_path.write_bytes(img_bytes)
 
 
 class PredictionError(Exception): ...
