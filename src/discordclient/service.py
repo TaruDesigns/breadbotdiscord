@@ -2,10 +2,10 @@ import asyncio
 import logging
 from pathlib import Path
 
+import discord
 from discord.ext import commands
 from loguru import logger
 
-import discord
 from db.service import DBService, User, UserNotFound
 from inference.predict import InferenceClient
 from settings import SETTINGS
@@ -18,17 +18,15 @@ class DiscordBot(commands.Bot):
     def __init__(self, db: DBService, inference: InferenceClient):
         self.db = db
         self.inference = inference
-        self.register_handlers()
         intents = discord.Intents.default()
         intents.message_content = True
         discord.utils.setup_logging(level=logging.INFO)
-        super().__init__(command_prefix="$", intents=self.intents)
+        super().__init__(command_prefix="$", intents=intents)
+        self.register_handlers()
 
     def register_handlers(self):
-        self.handlers = {}
-        self.add_command(commands.Command(self.breadstats, name="breadstats"))
-        self.add_command(commands.Command(self.hello, name="hello"))
-        self.add_command(commands.Command(self.help, name="help"))
+        self.command(name="breadstats")(self.breadstats)
+        self.command(name="hello")(self.hello)
 
     async def on_ready(self):
         logger.info(f"We have logged in as {self.user}")
@@ -43,7 +41,6 @@ class DiscordBot(commands.Bot):
             author_nickname=message.author.nick if message.author.nick else None,
             author_name=message.author.name,
         )
-        # Cache the user info
         self.db.upsert_user_info(user)
         ctx = await self.get_context(message)
         if ctx.valid:
@@ -55,23 +52,28 @@ class DiscordBot(commands.Bot):
         await message.channel.send(f"You said: {message.content}")
         await self.predict(message)
 
-    async def breadstats(self, ctx: commands.Context, *args):
-        """Main handler for $breadstats message.
+    @staticmethod
+    def parse_message_args(message_content: str) -> list[str]:
+        contents = message_content.strip().split(" ")
+        return contents[1:]
 
-        Args:
-            message (discord.Message): Discord message
-            args (list[str]): message content arguments
-        """
-        if len(args) < 2:
+    async def breadstats(self, ctx: commands.Context, *args):
+        """Get your previous stats for the breads you've posted
+        Arguments:
+        --history : Shows a plot with
+        --self : Shows your Best and worst
+        --top [n] : Shows the best and worst [n] results for the server"""
+        args = self.parse_message_args(ctx.message.content)
+        if len(args) < 1:
             await ctx.channel.send(
                 content="Not enough arguments", reference=ctx.message
             )
-        elif args[1] == "--history":
+        elif args[0] == "--history":
             await self._breadstats_history(ctx, *args)
 
-        elif args[1] == "--self":
+        elif args[0] == "--self":
             await self._breadstats_self(ctx, *args)
-        elif args[1] == "--top":
+        elif args[0] == "--top":
             await self._breadstats_top(ctx, *args)
         else:
             await self._breadstats_top(ctx, *args)
@@ -80,23 +82,18 @@ class DiscordBot(commands.Bot):
         # Return results (top 1) for current user
         try:
             results_min = self.db.get_min_roundness_for_user(ctx.author.id)
-            min_roundness_percent = round(results_min.roundness * 100, 2)
+            min_roundness_percent = results_min.roundness
         except UserNotFound:
             min_roundness_percent = 0
-
         try:
             results_max = self.db.get_max_roundness_for_user(ctx.author.id)
-            max_roundness_percent = (
-                round(results_min.roundness * 100, 2)
-                if results_min.roundness is not None
-                else 0
-            )
+            max_roundness_percent = results_max.roundness
         except UserNotFound:
             max_roundness_percent = 0
         reply_content = f"""
                             Hello {ctx.author.name}:
-                            Min roundness:  {min_roundness_percent:.2f}% on message: {results_min.replymessage_jump_url},
-                            Max roundness {max_roundness_percent:.2f}% on message: {results_max.replymessage_jump_url}
+                            Min roundness:  {min_roundness_percent * 100:.2f}% on message: {results_min.replymessage_jump_url},
+                            Max roundness {max_roundness_percent * 100:.2f}% on message: {results_max.replymessage_jump_url}
                             """
         await ctx.channel.send(content=reply_content, reference=ctx.message)
 
@@ -105,8 +102,8 @@ class DiscordBot(commands.Bot):
         save_path = (
             SETTINGS.downloads_path / "plots" / f"{ctx.author.id}_roundhistory.png"
         )
-        plot_filepath = plots.plot_roundness_by_user(roundness_data, save_path)
-        discord_file = discord.File(plot_filepath)
+        plots.plot_roundness_by_user(roundness_data, save_path)
+        discord_file = discord.File(save_path)
         reply_content = "Here's your graph with the roundness history"
         await ctx.channel.send(
             content=reply_content, reference=ctx.message, file=discord_file
@@ -149,7 +146,7 @@ class DiscordBot(commands.Bot):
         await ctx.channel.send(content=reply_content, reference=ctx.message)
 
     async def hello(self, ctx: commands.Context, *args):
-        """Basic handler for hello message - just a health check"""
+        """Say hello!"""
         await ctx.channel.send(content="Hello!", reference=ctx.message)
 
     async def predict(self, message: discord.Message):
@@ -232,15 +229,6 @@ class DiscordBot(commands.Bot):
             guild_id=message.guild.id,
         )
         return sent
-
-    async def help(self, ctx: commands.Context, *args):
-        help_message = """Available commands:
-                        $breadstats --self : Get your roundness bread stats
-                        $breadstats --top X : Get the server roundness breadstats (X is a number)
-                        $breadstats --history : Get your roundness history
-                        $help : you just used this
-                        """
-        await ctx.channel.send(content=help_message, reference=ctx.message)
 
     async def get_message_by_id(
         self, guild_id: int, channel_id: int, message_id: int

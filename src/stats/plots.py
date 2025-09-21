@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 
-def plot_roundness_by_user(data, filepath: Path) -> str:
+def plot_roundness_by_user(data, filepath: Path):
     # Data: list of tuples with (X, Y) values
     x_values, y_values = zip(*data)
     # Scale Y values to percentages
@@ -29,7 +29,5 @@ def plot_roundness_by_user(data, filepath: Path) -> str:
     plt.title("Amazing roundness history for User", fontsize=18, fontweight="bold")
 
     # Save the plot as a PNG image
-    outputfolder = os.path.join(os.getcwd(), "output", "plots")
-    os.makedirs(outputfolder, exist_ok=True)
-
-    plt.savefig(filepath, dpi=300, bbox_inches="tight")
+    os.makedirs(filepath.parent, exist_ok=True)
+    plt.savefig(filepath.as_posix(), dpi=300, bbox_inches="tight")

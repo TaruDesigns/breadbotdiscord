@@ -1,4 +1,6 @@
-from pydantic import BaseModel, field_validator
+import json
+
+from pydantic import BaseModel
 
 
 class Message(BaseModel):
@@ -8,8 +10,8 @@ class Message(BaseModel):
     author_id: int
     channel_id: int
     guild_id: int
-    roundness: float
-    labels_json: dict
+    roundness: float | None
+    labels_json: dict[str, float] | None
 
     @classmethod
     def select(cls) -> str:
@@ -18,11 +20,9 @@ class Message(BaseModel):
     @classmethod
     def from_row(cls, row: list) -> "Message":
         field_names = list(cls.model_fields.keys())
-        return cls(**dict(zip(field_names, row)))
-
-    @field_validator("roundness")
-    def round_roundness(cls, v):
-        return round(v, 2)
+        data = dict(zip(field_names, row))
+        data["labels_json"] = json.loads(data["labels_json"])
+        return cls(**data)
 
 
 class User(BaseModel):

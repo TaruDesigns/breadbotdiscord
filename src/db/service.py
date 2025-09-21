@@ -2,14 +2,14 @@ import json
 import os
 import sqlite3
 from contextlib import contextmanager
-from enum import Enum
+from enum import StrEnum
 
 from loguru import logger
 
 from .models import Message, User
 
 
-class OrderBy(Enum):
+class OrderBy(StrEnum):
     ASC = "ASC"
     DES = "DESC"
 
@@ -71,9 +71,7 @@ class DBService:
     def upsert_message_stats(
         self, ogmessage_id: int, roundness: float, labels_json: dict
     ) -> None:
-        logger.info(
-            f"Upserting: {ogmessage_id}, {roundness}, {labels_json} in messages"
-        )
+        logger.info(f"Upserting: {ogmessage_id}, {roundness}, {labels_json} in messages")
         labels_json_str = json.dumps(labels_json)
 
         upsert_sql = """
@@ -163,15 +161,14 @@ class DBService:
     def get_max_roundness_for_user(self, user_id: int) -> Message:
         return self._get_roundness_message_byuserid(user_id, OrderBy.DES)
 
-    def _get_roundness_message_byuserid(
-        self, user_id: int, orderby: OrderBy
-    ) -> Message:
-        logger.info(f"Fetching min and max roundness for user_id: {user_id}")
+    def _get_roundness_message_byuserid(self, user_id: int, orderby: OrderBy) -> Message:
+        logger.info(f"Fetching roundness for user_id: {user_id}")
 
         query = f"""
         {Message.select()}
         WHERE author_id = ?
-        ORDER BY roundness {orderby}, ogmessage_id {orderby}
+        AND roundness NOT NULL
+        ORDER BY roundness {orderby.value}, ogmessage_id {orderby.value}
         LIMIT 1
         """
         with self.connect() as cursor:
@@ -187,9 +184,7 @@ class DBService:
     def get_min_roundness_leaderboard(self, n: int) -> list[Message]:
         return self._get_minmax_roundness_leaderboard(n, OrderBy.ASC)
 
-    def _get_minmax_roundness_leaderboard(
-        self, n: int, orderby: OrderBy
-    ) -> list[Message]:
+    def _get_minmax_roundness_leaderboard(self, n: int, orderby: OrderBy) -> list[Message]:
         """Returns top 'n' min and max roundness returning the ogmessage_id and jump_url as well for each row"""
         logger.info(f"Fetching min and max roundness top {n} leaderboard")
         roundness_query = f"""
@@ -222,30 +217,6 @@ class DBService:
             cursor.execute(roundness_query, (user_id,))
             rows = cursor.fetchall()
             for i, row in enumerate(rows, start=1):
-                result.append((i, row[1]))
+                message = Message.from_row(row)
+                result.append((i, message.roundness))
         return result
-
-
-if __name__ == "__main__":
-    """
-    ogmessageid = 231231
-    upsert_message_stats(
-        ogmessageid,
-        None,
-        {
-            "bread": 0.80332,
-            "oblong": 0.68173,
-            "no_seeds": 0.33406,
-            "raised": 0.31631,
-            "white": 0.22345,
-            "cooked": 0.13072,
-            "round": 0.11216,
-            "baguette": 0.05641,
-        },
-    )
-    upsert_message_discordinfo(
-        ogmessageid, "http://google.com", 123214, 12313, 13213, 123123
-    )
-    res = get_minmax_roundness_byuserid(206734328879775746)
-    a = 5
-"""
