@@ -71,7 +71,9 @@ class DBService:
     def upsert_message_stats(
         self, ogmessage_id: int, roundness: float, labels_json: dict
     ) -> None:
-        logger.info(f"Upserting: {ogmessage_id}, {roundness}, {labels_json} in messages")
+        logger.info(
+            f"Upserting: {ogmessage_id}, {roundness}, {labels_json} in messages"
+        )
         labels_json_str = json.dumps(labels_json)
 
         upsert_sql = """
@@ -161,7 +163,9 @@ class DBService:
     def get_max_roundness_for_user(self, user_id: int) -> Message:
         return self._get_roundness_message_byuserid(user_id, OrderBy.DES)
 
-    def _get_roundness_message_byuserid(self, user_id: int, orderby: OrderBy) -> Message:
+    def _get_roundness_message_byuserid(
+        self, user_id: int, orderby: OrderBy
+    ) -> Message:
         logger.info(f"Fetching roundness for user_id: {user_id}")
 
         query = f"""
@@ -184,7 +188,9 @@ class DBService:
     def get_min_roundness_leaderboard(self, n: int) -> list[Message]:
         return self._get_minmax_roundness_leaderboard(n, OrderBy.ASC)
 
-    def _get_minmax_roundness_leaderboard(self, n: int, orderby: OrderBy) -> list[Message]:
+    def _get_minmax_roundness_leaderboard(
+        self, n: int, orderby: OrderBy
+    ) -> list[Message]:
         """Returns top 'n' min and max roundness returning the ogmessage_id and jump_url as well for each row"""
         logger.info(f"Fetching min and max roundness top {n} leaderboard")
         roundness_query = f"""

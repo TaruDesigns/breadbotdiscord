@@ -23,6 +23,7 @@ class PredictResponse(BaseModel):
     def save_img(self, out_path: Path):
         if self.image is None:
             raise ValueError("No image to save.")
+        out_path.parent.mkdir(parents=True, exist_ok=True)
         img_bytes = base64.b64decode(self.image)
         out_path.write_bytes(img_bytes)
 

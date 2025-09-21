@@ -49,7 +49,6 @@ class DiscordBot(commands.Bot):
             await self.on_plain_message(message)
 
     async def on_plain_message(self, message: discord.Message):
-        await message.channel.send(f"You said: {message.content}")
         await self.predict(message)
 
     @staticmethod

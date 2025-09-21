@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     db_data_path: Path = Path("dbdata/messages.db")
     downloads_path: Path = Path("downloads/")
 
-    inference_service_url: str = "http://localhost:8001"
+    inference_service_url: str = "http://localhost:8000"
 
     model_config = SettingsConfigDict(env_prefix="__", env_file=".env")
 
